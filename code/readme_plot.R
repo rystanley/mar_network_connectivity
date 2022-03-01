@@ -91,7 +91,7 @@ p3 <- ggplot(data=areadat,aes(area))+
   stat_ecdf(geom = "step", pad = FALSE)+
   scale_x_log10()+
   geom_vline(data=area_sum,aes(xintercept=area,col=lab),lwd=1.5)+
-  labs(x=expression(paste("Area ",km^2)),y="% total area",col="")+
+  labs(x=expression(paste("Area ",km^2)),y="% total network area",col="")+
   theme_bw()+
   theme(legend.position = c(0.1,0.9));p3
 
@@ -109,9 +109,19 @@ p4 <- ggplot(data=areadat,aes(area,fill=..x..),binwidth=50)+
   
 ggsave("output/area_hist_crappy.png",p4,width=6,height=6,dpi=300,units="in")
 
-group_plot <- p2+theme(legend.position="none",axis.text.y=element_blank(),panel.grid = element_blank())+scale_x_discrete(position="top")+labs(x=expression(paste("Draft site area ",km^2)))+
-              p3+scale_y_continuous(position="right")+theme(legend.position = c(0.17,0.87),legend.background = element_blank())+
-              p4+scale_y_continuous(position="right")+
+group_plot <- p2+ # bar plot
+                theme(legend.position="none",
+                      axis.text.y=element_blank(),
+                      panel.grid = element_blank())+
+                 scale_x_discrete(position="top")+
+                 labs(x=expression(paste("Draft site area ",km^2)))+
+              p3+ #cumulative frequency plot
+                  scale_y_continuous(position="right")+
+                  theme(legend.position = c(0.17,0.87),
+                        legend.background = element_blank())+
+                  labs(x="")+
+              p4+ #histogram plot
+                  scale_y_continuous(position="right")+
               plot_layout(ncol=1)      
 
 ggsave("output/grouped_area_diagnostics.png",group_plot,height=10,width=5,units="in",dpi=300)
