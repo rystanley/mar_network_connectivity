@@ -52,15 +52,17 @@ p1 <- ggplot()+
       geom_sf(data=network,fill="grey90",col="black")+
       geom_sf(data=bioregion,col="black",fill=NA)+
       geom_sf(data=basemap,fill="darkolivegreen3")+
-      geom_sf(data=network,col="black",fill=NA)+
+      geom_sf(data=network,col="black",aes(fill=area))+
       geom_sf(data=bathy,fill=NA)+
+      scale_fill_viridis(trans = 'log10')+
       theme(plot.background = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
           panel.border = element_blank(),
           axis.ticks = element_blank(),
-          axis.text = element_blank());p1
+          axis.text = element_blank())+
+      labs(fill=expression(paste("Area ",km^2)));p1
   
 #save the plots
 ggsave("inst/SSBoF_newtork.png",p1,width=6,height=6,dpi=300,units="in")
