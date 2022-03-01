@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+data/conservation_objectives/
+data/COs/
+data/temp.zip
