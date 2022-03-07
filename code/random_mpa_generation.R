@@ -30,7 +30,13 @@ grid <- st_make_grid(bioregion,n=100,square=FALSE) %>%
   st_as_sf() %>% 
   st_filter(bioregion)
 
-edgelist <- st_intersects(grid,grid) %>% 
+adj_edgelist <- st_intersects(grid,grid) %>% 
+  as.data.frame() %>% 
+  filter(row.id!=col.id)
+
+grid_planar <- grid %>% st_transform(planar)
+# 25 km buffer to start
+buff_edgelist <- st_intersects(grid_planar,st_buffer(grid_planar,25)) %>% 
   as.data.frame() %>% 
   filter(row.id!=col.id)
 
@@ -38,9 +44,10 @@ edgelist <- st_intersects(grid,grid) %>%
 areas <- as.numeric(st_area(network))
 
 # grid is a grid covering your planning area
-# edgelist is the intersecting neighbours edgelist of grid, could be done 'in function' but that would slow it down
 # areas is a vector of mpa area coverage in m^2
-rand_mpa <- function(grid,edgelist,areas){
+# adj_edgelist is the self-intersecting neighbours edgelist of grid, could be done 'in function' but that would slow it down. Used to create contiguous multi-grid cell MPA's.
+# buff_edgelist is the intersecting edgelist of grid with a buffered grid, could be done 'in function' but that would slow it down. Used to guarantee minimum distances (buffer distance) between MPAs.
+rand_mpa <- function(grid,areas,adj_edgelist,buff_edgelist=adj_edgelist){
   # find number of grid cells for each area
   cells <- floor(areas/as.numeric(st_area(grid[1,])))
   network <- NULL
@@ -48,17 +55,21 @@ rand_mpa <- function(grid,edgelist,areas){
     
     # create single grid cell mpa "kernel"
     size <- 1
-    index_network <- edgelist$row.id %in% network$grid_cell |
-      edgelist$row.id %in% edgelist$row.id[edgelist$col.id %in% network$grid_cell]
+    index_network <- buff_edgelist$row.id %in% network$grid_cell |
+      buff_edgelist$row.id %in% buff_edgelist$row.id[buff_edgelist$col.id %in% network$grid_cell]
+    id_network <- unique(buff_edgelist$row.id[index_network])
+    outnetwork_adj <- adj_edgelist[!adj_edgelist$row.id %in% id_network,]
     
-    mpa <- as.numeric(sample(edgelist$row.id[!index_network],1))
+    mpa <- as.numeric(sample(buff_edgelist$row.id[!index_network],1))
+    
+     
 
     # grow the kernel if necessary
     while(size<finalsize){
-      index_mpa <- edgelist$col.id %in% mpa 
-      # edgelist$row.id[index_mpa]
+      index_mpa <- outnetwork_adj$col.id %in% mpa 
+      
       mpa <- c(mpa,
-               sample(edgelist$row.id[index_mpa & !index_network],1))
+               sample(outnetwork_adj$row.id[index_mpa],1))
       size <- length(mpa)
     }
     
@@ -66,7 +77,7 @@ rand_mpa <- function(grid,edgelist,areas){
     if(any(mpa %in% network$grid_cell)){
       warning("mpa is within network, this function is broken")
     }
-    if(any(mpa %in% edgelist$row.id[edgelist$col.id %in% network$grid_cell])){
+    if(any(mpa %in% buff_edgelist$row.id[buff_edgelist$col.id %in% network$grid_cell])){
       warning("mpa is within buffer, this function is broken")
     }
     
@@ -85,14 +96,15 @@ rand_mpa <- function(grid,edgelist,areas){
   return(network %>% 
            left_join(grid %>% 
                        mutate(grid_cell=as.numeric(row.names(.))),by = "grid_cell") %>% 
-           st_as_sf() %>% 
-           filter(-grid_cell)
+           st_as_sf() 
            )
 }
 
 
 # test
-newnetwork <- rand_mpa(grid,edgelist,areas)
+# newnetwork <- rand_mpa(grid,areas,adj_edgelist)
+newnetwork <- rand_mpa(grid,areas,adj_edgelist,buff_edgelist)
+
 
 ggplot(grid)+
   geom_sf()+
