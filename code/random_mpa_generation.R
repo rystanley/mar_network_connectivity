@@ -41,19 +41,36 @@ areas <- as.numeric(st_area(network))
 # edgelist is the intersecting neighbours edgelist of grid, could be done 'in function' but that would slow it down
 # areas is a vector of mpa area coverage in m^2
 rand_mpa <- function(grid,edgelist,areas){
+  # find number of grid cells for each area
   cells <- floor(areas/as.numeric(st_area(grid[1,])))
   network <- NULL
   for(finalsize in cells){
     
+    # create single grid cell mpa "kernel"
     size <- 1
-    mpa <- as.numeric(sample(row.names(grid),1))
+    index_network <- edgelist$row.id %in% network$grid_cell |
+      edgelist$row.id %in% edgelist$row.id[edgelist$col.id %in% network$grid_cell]
+    
+    mpa <- as.numeric(sample(edgelist$row.id[!index_network],1))
 
+    # grow the kernel if necessary
     while(size<finalsize){
+      index_mpa <- edgelist$col.id %in% mpa 
+      # edgelist$row.id[index_mpa]
       mpa <- c(mpa,
-               sample(edgelist$col.id[edgelist$row.id %in% mpa & !edgelist$col.id %in% mpa],1))
+               sample(edgelist$row.id[index_mpa & !index_network],1))
       size <- length(mpa)
     }
     
+    # warnings
+    if(any(mpa %in% network$grid_cell)){
+      warning("mpa is within network, this function is broken")
+    }
+    if(any(mpa %in% edgelist$row.id[edgelist$col.id %in% network$grid_cell])){
+      warning("mpa is within buffer, this function is broken")
+    }
+    
+    # create df with `mpa` and bind it to the network
     if(is.null(network)){
       mpadf <- data.frame(mpa_id=1,
                           grid_cell=mpa)
@@ -64,19 +81,18 @@ rand_mpa <- function(grid,edgelist,areas){
     network <- dplyr::bind_rows(network,mpadf)
   }
   
+  # join network with grid
   return(network %>% 
            left_join(grid %>% 
                        mutate(grid_cell=as.numeric(row.names(.))),by = "grid_cell") %>% 
-           st_as_sf()
+           st_as_sf() %>% 
+           filter(-grid_cell)
            )
 }
 
 
-
-newnetwork <- rand_mpa(grid,edgelist,areas) 
-
-
-
+# test
+newnetwork <- rand_mpa(grid,edgelist,areas)
 
 ggplot(grid)+
   geom_sf()+
