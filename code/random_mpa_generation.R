@@ -39,22 +39,6 @@ grid <- st_make_grid(bioregion,n=100,square=FALSE) %>%
 # stratify the grid
 simplecoastal <- coastal %>% st_simplify(preserveTopology = TRUE,dTolerance = 0.01)
 
-#yes this is slow... and manually fixes Georges Basin
-grid_stratified <- grid %>% 
-  mutate(coastal=lengths(st_intersects(.,simplecoastal))>0,
-         bathy=lengths(st_intersects(.,bathy))>0,
-         strata=case_when(coastal ~ "coastal",
-                          !coastal&bathy ~ "mid-shore",
-                          !coastal&!bathy ~ "offshore")) %>%
-  mutate(strata=if_else(strata == "offshore" & # hard coded override for Georges Basin = mid-shore
-                          st_coordinates(st_centroid(x))[,1]<(-66) &
-                          st_coordinates(st_centroid(x))[,2]>42,
-                        "mid-shore",
-                        strata))
-
-ggplot(grid_stratified)+
-  geom_sf(aes(fill=strata))
-
 adj_edgelist <- st_intersects(grid,grid) %>% 
   as.data.frame() %>% 
   filter(row.id!=col.id)
@@ -67,6 +51,7 @@ buff_edgelist <- st_intersects(grid_planar,st_buffer(grid_planar,25)) %>%
 
 # calculate the area in each mpa
 areas <- as.numeric(st_area(network))
+
 
 # grid is a grid covering your planning area
 # areas is a vector of mpa area coverage in m^2
@@ -140,6 +125,49 @@ rand_mpa <- function(grid,areas,adj_edgelist,buff_edgelist=adj_edgelist,max_edge
 # newnetwork <- rand_mpa(grid,areas,adj_edgelist)
 # newnetwork <- rand_mpa(grid,areas,adj_edgelist,buff_edgelist)
 newnetwork <- rand_mpa(grid,areas,adj_edgelist,buff_edgelist,max_edge=4)
+
+
+ggplot(grid)+
+  geom_sf()+
+  geom_sf(data=newnetwork,aes(fill=mpa_id))
+
+
+#### stratififed ####
+#yes this is slow... and manually fixes Georges Basin
+grid_stratified <- grid %>% 
+  mutate(coastal=lengths(st_intersects(.,simplecoastal))>0,
+         bathy=lengths(st_intersects(.,bathy))>0,
+         strata=case_when(coastal ~ "coastal",
+                          !coastal&bathy ~ "mid-shore",
+                          !coastal&!bathy ~ "offshore")) %>%
+  mutate(strata=if_else(strata == "offshore" & # hard coded override for Georges Basin = mid-shore
+                          st_coordinates(st_centroid(x))[,1]<(-66) &
+                          st_coordinates(st_centroid(x))[,2]>42,
+                        "mid-shore",
+                        strata))
+
+ggplot(grid_stratified)+
+  geom_sf(aes(fill=strata))
+
+# calculate the area in each mpa
+network_stratified <- grid_stratified %>% 
+  group_by(strata) %>% 
+  summarize() %>% 
+  st_intersection(network)
+
+areas <- as.numeric(st_area(network_stratified))
+
+rand_stratified_mpa <- function(grid,areas,grid_strata,area_strata,adj_edgelist,buff_edgelist=adj_edgelist,max_edge=4){
+  purrr::map(unique(grid_strata),function(s){
+    rand_mpa(grid[grid_strata==s,],
+             areas[area_strata==s],
+             adj_edgelist[adj_edgelist$row.id %in% which(grid_strata==s) & adj_edgelist$col.id %in% which(grid_strata==s),],
+             buff_edgelist[buff_edgelist$row.id %in% which(grid_strata==s) & buff_edgelist$col.id %in% which(grid_strata==s),],
+             max_edge)}) %>% 
+    bind_rows()
+}
+
+newnetwork <- rand_stratified_mpa(grid,areas,grid_stratified$strata,network_stratified$strata,adj_edgelist,buff_edgelist,max_edge=4)
 
 
 ggplot(grid)+
