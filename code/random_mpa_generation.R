@@ -159,7 +159,7 @@ areas <- as.numeric(st_area(network_stratified))
 
 rand_stratified_mpa <- function(grid,areas,grid_strata,area_strata,adj_edgelist,buff_edgelist=adj_edgelist,max_edge=4){
   purrr::map(unique(grid_strata),function(s){
-    rand_mpa(grid[grid_strata==s,],
+    rand_mpa(grid,
              areas[area_strata==s],
              adj_edgelist[adj_edgelist$row.id %in% which(grid_strata==s) & adj_edgelist$col.id %in% which(grid_strata==s),],
              buff_edgelist[buff_edgelist$row.id %in% which(grid_strata==s) & buff_edgelist$col.id %in% which(grid_strata==s),],
