@@ -12,6 +12,12 @@ latlong <- "+proj=longlat +datum=NAD83 +no_defs +ellps=GRS80 +towgs84=0,0,0"
 #load the network polygon
 bioregion <- read_sf("data/shapefiles/MaritimesPlanningArea.shp")%>%st_transform(latlong)
 
+coastal <- read_sf("data/shapefiles/coastal_planning_area.shp")%>%st_transform(latlong)
+
+bathy <- read_sf("data/shapefiles/Countour_250.shp")%>%
+  st_transform(latlong)%>%
+  st_intersection(.,bioregion)
+
 network_raw <- read_sf("data/shapefiles/networksites_proposed_OEM_MPA_v2.shp")
 
 network <- network_raw%>%
@@ -29,6 +35,25 @@ network <- network_raw%>%
 grid <- st_make_grid(bioregion,n=100,square=FALSE) %>% 
   st_as_sf() %>% 
   st_filter(bioregion)
+
+# stratify the grid
+simplecoastal <- coastal %>% st_simplify(preserveTopology = TRUE,dTolerance = 0.01)
+
+#yes this is slow... and manually fixes Georges Basin
+grid_stratified <- grid %>% 
+  mutate(coastal=lengths(st_intersects(.,simplecoastal))>0,
+         bathy=lengths(st_intersects(.,bathy))>0,
+         strata=case_when(coastal ~ "coastal",
+                          !coastal&bathy ~ "mid-shore",
+                          !coastal&!bathy ~ "offshore")) %>%
+  mutate(strata=if_else(strata == "offshore" & # hard coded override for Georges Basin = mid-shore
+                          st_coordinates(st_centroid(x))[,1]<(-66) &
+                          st_coordinates(st_centroid(x))[,2]>42,
+                        "mid-shore",
+                        strata))
+
+ggplot(grid_stratified)+
+  geom_sf(aes(fill=strata))
 
 adj_edgelist <- st_intersects(grid,grid) %>% 
   as.data.frame() %>% 
