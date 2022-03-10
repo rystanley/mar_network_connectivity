@@ -196,7 +196,8 @@ rand_stratified_mpa <- function(grid,areas,grid_strata,area_strata,adj_edgelist,
              areas[area_strata==s],
              adj_edgelist[adj_edgelist$row.id %in% which(grid_strata==s) & adj_edgelist$col.id %in% which(grid_strata==s),],
              buff_edgelist[buff_edgelist$row.id %in% which(grid_strata==s) & buff_edgelist$col.id %in% which(grid_strata==s),],
-             max_edge)}) %>% 
+             max_edge) %>% 
+      mutate(mpa_id=paste(s,mpa_id)) }) %>% 
     bind_rows()
 }
 
