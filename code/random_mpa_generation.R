@@ -101,7 +101,7 @@ rand_mpa <- function(grid,areas,adj_edgelist,buff_edgelist=adj_edgelist,max_edge
     if(any(mpa %in% network$grid_cell)){
       warning("mpa is within network, this function is broken")
     }
-    if(any(mpa %in% buff_edgelist$col.id[buff_edgelist$row.id %in% network$grid_cell])){
+    if(any(mpa %in% buff_edgelist$row.id[buff_edgelist$row.id %in% network$grid_cell])){
       warning("mpa is within buffer, this function is broken")
     }
     
